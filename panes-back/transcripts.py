@@ -383,12 +383,16 @@ def extract_agy(path):
         out["error"] = "unreadable"
         return out
     first_user = last_user = last_model = None
-    last_type = last_status = last_ts = None
+    first_ts = last_type = last_status = last_ts = None
     n_steps = 0
     for d in jsonl(text):
         n_steps += 1
         last_type, last_status, last_ts = d.get("type"), d.get("status"), d.get("created_at")
+        first_ts = first_ts or last_ts
         c = d.get("content") or ""
+        if d.get("type") == "USER_INPUT":  # the ask arrives wrapped: <USER_REQUEST>\n/<mode> text</USER_REQUEST>
+            c = re.sub(r"</?USER_REQUEST>", "", c).strip()
+            c = re.sub(r"^/(plan|ask|agent|edit)\s+", "", c)
         if d.get("type") == "USER_INPUT":
             if first_user is None:
                 first_user = c
@@ -403,7 +407,7 @@ def extract_agy(path):
         status = "unknown (no steps)"
     else:
         status = "idle (last step done)"
-    out.update({"n_steps": n_steps, "last_ts": to_local(last_ts), "last_type": last_type,
+    out.update({"n_steps": n_steps, "first_ts": to_local(first_ts), "last_ts": to_local(last_ts), "last_type": last_type,
                 "last_status": last_status, "first_user": clip(first_user, 120),
                 "last_user": clip(last_user, 160), "last_model": clip(last_model, 200), "status": status})
     return out

@@ -214,13 +214,30 @@ def argv_cli(argv: list[str]) -> tuple[str | None, list[str]]:
     return None, []
 
 
+def codex_resume_at(args: list[str]) -> int | None:
+    """Index of Codex's `resume` subcommand: the first bare word that is not an option's value."""
+    j = 0
+    while j < len(args):
+        a = args[j]
+        if a == "resume":
+            return j
+        if a.startswith("-"):
+            # a separate value follows an option unless it is a flag or carries its value (--x=y, -Cdir)
+            takes = "=" not in a and a not in ("--dangerously-bypass-approvals-and-sandbox", "--full-auto",
+                                                "--search", "--oss", "--last") and not (len(a) > 2 and a[1] != "-")
+            j += 2 if takes and j + 1 < len(args) and not args[j + 1].startswith("-") else 1
+            continue
+        return None  # the first bare word is another subcommand or a prompt
+    return None
+
+
 def selected_ids(cli: str, args: list[str]) -> set[str]:
     """Session ids this process was started on: codex `resume <id>`, or a selector option's separate value."""
     ids = set()
-    if cli == "codex":
-        pos = [a for a in args if not a.startswith("-")]
-        if len(pos) >= 2 and pos[0] == "resume":
-            ids.add(pos[1])
+    if cli == "codex":  # `resume <id>` may follow global options such as --model or -C
+        k = codex_resume_at(args)
+        if k is not None and k + 1 < len(args) and SAFE_ID.fullmatch(args[k + 1]):
+            ids.add(args[k + 1])
         return ids
     for i, a in enumerate(args):
         if a in SELECTORS.get(cli, ()) and i + 1 < len(args):
@@ -379,12 +396,20 @@ def summarise(f: dict) -> dict:
     elif cli == "agy":
         cid = os.path.basename(path)[:-3]
         cwd = agy_cwd_map(f["home"]).get(cid)
-        s.update(id=cid, cwd=cwd, status="not parsed (sqlite conversation)", last_ts=f["mtime"])
+        s.update(id=cid, cwd=cwd, status="unknown (no transcript log)", last_ts=f["mtime"])
+        # The conversation's readable log sits beside its SQLite db, under the same id.
+        e = transcripts.extract_agy(os.path.join(f["home"], ".gemini/antigravity-cli/brain", cid,
+                                                 ".system_generated/logs/transcript.jsonl"))
+        if not e.get("error"):
+            s.update(status=e.get("status", "unknown"), last_ask=e.get("last_user"), last_said=e.get("last_model"),
+                     first_ts=parse_local(e.get("first_ts")), last_ts=parse_local(e.get("last_ts")) or f["mtime"],
+                     agy_log=e["path"])
         # Antigravity records no launch mode; a conversation rooted in a temp folder is taken as a headless run
         # (a known limit; "agy_tmp_is_headless": false in the config turns it off).
         s["headless"] = AGY_TMP_HEADLESS and bool(cwd) and any(cwd == t or cwd.startswith(t + "/")
                                                                for t in ("/tmp", "/var/tmp"))
-        s["first_ask"] = f"Antigravity conversation in {cwd or '(cwd unknown)'}"
+        s["first_ask"] = (e.get("first_user") if not e.get("error") else None) or \
+            f"Antigravity conversation in {cwd or '(cwd unknown)'}"
     elif cli == "kimi":
         sdir = os.path.dirname(path)
         e = transcripts.extract_kimi(sdir)
@@ -558,9 +583,8 @@ def strip_selectors(cli: str, args: list[str]) -> list[str]:
     """A launch that already resumes or continues something: drop that, the recovered session replaces it."""
     args = list(args)
     if cli == "codex":
-        pos = [i for i, a in enumerate(args) if not a.startswith("-")]
-        if pos and args[pos[0]] == "resume":
-            k = pos[0]
+        k = codex_resume_at(args)
+        if k is not None:
             drop = {k}
             if k + 1 < len(args) and (args[k + 1] == "--last" or not args[k + 1].startswith("-")):
                 drop.add(k + 1)

@@ -75,7 +75,7 @@ The rebuilt line adds the resume verb, sets the folder with `env -C` (inside the
 ## How it decides
 
 - **Alive** means a running process is tied to that exact session: its id right after a resume flag on the command line, the transcript held open, or (Claude Code) `claude agents`. A running process it can't tie to any session is reported next to each session it might be ("liveness unresolved"), never silently ignored.
-- **Headless** runs are known from the transcript: Claude Code's `entrypoint` (`sdk-cli` for `claude -p`), Codex's `source` (`exec`, or a sub-agent thread). Antigravity records neither, so an Antigravity conversation rooted in `/tmp` or `/var/tmp` is taken as headless: a known limit, switched off with `agy_tmp_is_headless: false`.
+- **Headless** runs are known from the transcript: Claude Code's `entrypoint` (`sdk-cli` for `claude -p`), Codex's `source` (`exec`, or a sub-agent thread). Antigravity records neither, so an Antigravity conversation rooted in `/tmp` or `/var/tmp` is taken as headless: a known limit, switched off with `agy_tmp_is_headless: false`. Antigravity also keeps a working folder only for the latest conversation in each folder, so an older conversation's folder can read as unknown.
 - A headless run counts as **finished after the cut** only if it was already running at the cut and ended idle afterwards; one that ended before the cut, or started after it, is not listed.
 
 ## Safety
@@ -87,7 +87,7 @@ The rebuilt line adds the resume verb, sets the folder with `env -C` (inside the
 ## Files
 
 - `panes-back/panes_back.py`: the scanner and sheet writer.
-- `panes-back/transcripts.py`: per-CLI transcript readers (also a CLI: `transcripts.py [--sudo] claude <session.jsonl>`, `codex <rollout.jsonl>`, `grok <session-dir>`, `kimi <session-dir>`; Antigravity's SQLite conversations have no reader yet).
+- `panes-back/transcripts.py`: per-CLI transcript readers (also a CLI: `transcripts.py [--sudo] claude <session.jsonl>`, `codex <rollout.jsonl>`, `grok <session-dir>`, `kimi <session-dir>`, `agy <brain/<id>/.system_generated/logs/transcript.jsonl>`).
 - `panes-back/SKILL.md`: the Claude Code skill.
 - `panes-back/handover-brief.md`: the brief for an optional fresh-context reader per cut session.
 
