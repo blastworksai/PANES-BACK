@@ -1,0 +1,15 @@
+{
+  "timezone": "Europe/Amsterdam",
+  "users": ["alice", "agent-claude", "agent-codex"],
+  "sheet_dir": "~/resume-sheets",
+  "names": {"agent-claude": "Claude", "agent-codex": "Codex"},
+  "panes": [
+    {"name": "claude-main", "purpose": "BUILD",
+     "launch": "sudo -u agent-claude -H bash -lc 'exec env -C /srv/project claude --model opus'"},
+    {"name": "codex-review", "launch": "sudo -u agent-codex -H bash -lc 'exec env -C /srv/project codex --model gpt-5'"}
+  ],
+  "vscode_terminals": {"path": "/srv/project/.vscode/terminals.json", "launch_env": null, "purpose_env": null},
+  "purpose_rules": [{"first_ask_prefix": "/plan", "purpose": "PLAN"}],
+  "default_purpose": "BUILD",
+  "resume_hint": "Open the pane, paste the line."
+}
